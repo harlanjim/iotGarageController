@@ -3,8 +3,8 @@
 
 // If you want, you can define WiFi settings globally in Eclipse Environment Variables
 #ifndef WIFI_SSID
-#define WIFI_SSID "HappyPlace 2.4" // Put you SSID and Password here
-#define WIFI_PWD ""
+	#define WIFI_SSID "" // Put you SSID and Password here
+	#define WIFI_PWD ""
 #endif
 
 // For testing purposes, try a few different URL formats
@@ -12,9 +12,9 @@
 #define MQTT_URL2 "mqtts://attachix.com:8883" // (Need ENABLE_SSL)
 #define MQTT_URL3 "mqtt://frank:fiddle@192.168.100.107:1883"
 
-#define MQTT_URL MQTT_URL1
+#define LED_PIN 2 // GPIO2
 
-const URL url(MQTT_URL);
+const URL url(MQTT_URL1);
 
 // Forward declarations
 void startMqttClient();
@@ -49,13 +49,14 @@ void publishMessage()
 	if(mqtt.getConnectionState() != eTCS_Connected) {
 		startMqttClient(); // Auto reconnect
 	}
-
+/*
 	Serial.print("Let's publish message now. Memory free=");
 	Serial.println(system_get_free_heap_size());
 	mqtt.publish("main/frameworks/sming", "Hello friends, from Internet of things :)");
 
 	mqtt.publishWithQoS("important/frameworks/sming", "Request Return Delivery", 1, false,
 						onMessageDelivered); // or publishWithQoS
+						*/
 }
 
 // Callback for messages, arrived from MQTT server
@@ -64,6 +65,12 @@ void onMessageReceived(String topic, String message)
 	Serial.print(topic);
 	Serial.print(":\r\n\t"); // Pretify alignment for printing
 	Serial.println(message);
+	bool state = true;
+	if (message == "ON")
+		state = false;
+	digitalWrite(LED_PIN, state);
+	mqtt.publish("stat/garage/SWITCH1", message);
+
 }
 
 // Run MQTT client
@@ -94,7 +101,8 @@ void startMqttClient()
 	URL url(MQTT_URL);
 	Serial.printf("Connecting to \t%s\n", url.toString().c_str());
 	mqtt.connect(url, "garageTemperature");
-	mqtt.subscribe("tele/#");
+	mqtt.subscribe("cmnd/garage/SWITCH1");
+//	mqtt.subscribe("stat/garage/SWITCH1");
 }
 
 void onConnected(IPAddress ip, IPAddress netmask, IPAddress gateway)
@@ -103,17 +111,23 @@ void onConnected(IPAddress ip, IPAddress netmask, IPAddress gateway)
 	startMqttClient();
 
 	// Start publishing loop
-	procTimer.initializeMs(20 * 1000, publishMessage).start(); // every 20 seconds
+//	procTimer.initializeMs(20 * 1000, publishMessage).start(); // every 20 seconds
 }
 
 void init()
 {
 	Serial.begin(SERIAL_BAUD_RATE); // 115200 by default
 	Serial.systemDebugOutput(true); // Debug output to serial
+	Serial.printf("WIFI:", WIFI_SSID);
+	Serial.printf("WIFIPWD:", WIFI_PWD);
 
 	WifiStation.config(WIFI_SSID, WIFI_PWD);
 	WifiStation.enable(true);
 
+	pinMode(LED_PIN, OUTPUT);
+	digitalWrite(LED_PIN, false);
+
 	// Run our method when station was connected to AP (or not connected)
 	WifiEvents.onStationGotIP(onConnected);
 }
+
